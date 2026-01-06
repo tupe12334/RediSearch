@@ -34,6 +34,9 @@ on:
       benchmark_runner_group_total:
         type: number
         default: 1
+      lto:
+        type: boolean
+        default: false
 
 jobs:
   benchmark-steps:
