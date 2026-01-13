@@ -2,12 +2,15 @@
 MODE=$1 # whether to install using sudo or not
 set -e
 
+# Source LLVM version
+source "$(dirname "$0")/LLVM_VERSION.sh"
+
 $MODE apk update
 
 $MODE apk add --no-cache build-base gcc g++ make linux-headers openblas-dev \
     xsimd curl wget git openssl openssl-dev \
-    tar xz which rsync bsd-compat-headers clang clang17-libclang curl \
-    clang-static ncurses-dev llvm-dev bash
+    tar xz which rsync bsd-compat-headers clang${LLVM_VERSION} lld${LLVM_VERSION} clang${LLVM_VERSION}-libclang curl \
+    clang${LLVM_VERSION}-static llvm${LLVM_VERSION}-dev ncurses-dev llvm-dev bash
 
 # We must install Python via the package manager until
 # `uv` starts providing aarch64-musl builds.

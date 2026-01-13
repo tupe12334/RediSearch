@@ -372,6 +372,20 @@ jobs:
                        sed -e 's/[":\/\\<>\|*?]/_/g' -e 's/__*/_/g' -e 's/^_//' -e 's/_$//')
           echo "Artifact name: ${ARTIFACT_NAME}"
           echo "name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+      - name: Configure LLVM for LTO
+        if: needs.get-config.outputs.enable_lto == '1'
+        run: |
+          source .install/LLVM_VERSION.sh
+          echo "CC=clang-$LLVM_VERSION" >> $GITHUB_ENV
+          echo "CXX=clang++-$LLVM_VERSION" >> $GITHUB_ENV
+          CONTAINER="${{ needs.get-config.outputs.container }}"
+          if [[ "$CONTAINER" =~ ^alpine: ]]; then
+            # Alpine uses 'lld' and `llvm-config` without version suffix
+            echo "LD=lld" >> $GITHUB_ENV
+            echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-$LLVM_VERSION" >> $GITHUB_ENV
+          else
+            echo "LD=lld-$LLVM_VERSION" >> $GITHUB_ENV
+          fi
       - name: Build
         env:
           SAN: ${{ inputs.san }}
