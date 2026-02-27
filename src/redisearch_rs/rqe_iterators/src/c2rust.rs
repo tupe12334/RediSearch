@@ -14,6 +14,7 @@ use ffi::{
     IteratorType_WILDCARD_ITERATOR, QueryIterator, ValidateStatus_VALIDATE_ABORTED,
     ValidateStatus_VALIDATE_MOVED, ValidateStatus_VALIDATE_OK, t_docId,
 };
+
 use inverted_index::RSIndexResult;
 use std::{
     mem::ManuallyDrop,
@@ -315,5 +316,15 @@ impl<'index> RQEIterator<'index> for CRQEIterator {
             self.type_,
             IteratorType_WILDCARD_ITERATOR | IteratorType_INV_IDX_WILDCARD_ITERATOR
         )
+    }
+
+    fn sort_weight(&self) -> f64 {
+        if let Some(callback) = self.SortWeight {
+            // SAFETY: The callback was set by `RQEIteratorWrapper::boxed_new` and is valid
+            // to call with a shared pointer to this iterator.
+            unsafe { callback(self.header.as_ptr()) }
+        } else {
+            1.0
+        }
     }
 }
