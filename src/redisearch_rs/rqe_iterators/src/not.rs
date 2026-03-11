@@ -316,6 +316,53 @@ where
     }
 }
 
+/// Implement [`RQEIterator`] for `Box<dyn NotIterator>` so that it can be
+/// stored inside an `RQEIteratorWrapper`.
+impl<'index> RQEIterator<'index> for Box<dyn NotIterator<'index> + 'index> {
+    fn current(&mut self) -> Option<&mut RSIndexResult<'index>> {
+        (**self).current()
+    }
+
+    fn read(&mut self) -> Result<Option<&mut RSIndexResult<'index>>, RQEIteratorError> {
+        (**self).read()
+    }
+
+    fn skip_to(
+        &mut self,
+        doc_id: t_docId,
+    ) -> Result<Option<SkipToOutcome<'_, 'index>>, RQEIteratorError> {
+        (**self).skip_to(doc_id)
+    }
+
+    fn revalidate(&mut self) -> Result<RQEValidateStatus<'_, 'index>, RQEIteratorError> {
+        (**self).revalidate()
+    }
+
+    fn rewind(&mut self) {
+        (**self).rewind()
+    }
+
+    fn num_estimated(&self) -> usize {
+        (**self).num_estimated()
+    }
+
+    fn last_doc_id(&self) -> t_docId {
+        (**self).last_doc_id()
+    }
+
+    fn at_eof(&self) -> bool {
+        (**self).at_eof()
+    }
+
+    fn is_empty(&self) -> bool {
+        (**self).is_empty()
+    }
+
+    fn is_wildcard(&self) -> bool {
+        (**self).is_wildcard()
+    }
+}
+
 /// The result of [`not_iterator_reducer`].
 enum NotReduction<'index, I> {
     /// The NOT was reduced to a simpler iterator (e.g. wildcard or empty).
