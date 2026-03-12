@@ -20,6 +20,7 @@ typedef int (*OptimizerCompareFunc)(const void *e1, const void *e2, const void *
 
 #define OPTIM_OWN_NF 0x01
 
+// Keep in sync with the partial Rust layout in rqe_iterators/src/c2rust.rs.
 typedef struct {
   QueryIterator base;
   // child iterator with old root and numeric iterator for sortby field

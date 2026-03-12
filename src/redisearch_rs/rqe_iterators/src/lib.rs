@@ -37,6 +37,7 @@ pub use id_list::IdList;
 pub use intersection::Intersection;
 pub use inverted_index::{Missing, Numeric, Tag, Term};
 pub use metric::Metric;
+pub use profile::Profilable;
 pub use wildcard::{Wildcard, WildcardIterator};
 
 #[derive(Debug, PartialEq)]

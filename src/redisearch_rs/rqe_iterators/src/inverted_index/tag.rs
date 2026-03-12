@@ -16,7 +16,10 @@ use inverted_index::{
 };
 use query_term::RSQueryTerm;
 
-use crate::{ExpirationChecker, RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome};
+use crate::{
+    ExpirationChecker, RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome,
+    profile::Profilable,
+};
 
 use super::InvIndIterator;
 
@@ -221,5 +224,17 @@ where
         }
 
         self.it.revalidate()
+    }
+}
+
+impl<'index, E, C> Profilable<'index> for Tag<'index, E, C>
+where
+    E: DecodedBy + OpaqueEncoding<Storage = inverted_index::InvertedIndex<E>>,
+    <E as DecodedBy>::Decoder: DocIdsDecoder,
+    C: ExpirationChecker,
+{
+    type Profiled = Self;
+    fn profile_children(self) -> Self {
+        self
     }
 }

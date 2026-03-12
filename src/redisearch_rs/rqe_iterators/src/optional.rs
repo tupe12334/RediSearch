@@ -13,7 +13,10 @@ use ffi::{RS_FIELDMASK_ALL, t_docId};
 use inverted_index::RSIndexResult;
 use std::cmp;
 
-use crate::{RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome};
+use crate::{
+    RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome,
+    profile::{Profilable, Profile},
+};
 
 /// An iterator that emits a sequence of results with no gaps, up to a given document id.
 /// Results are pulled from an underlying [`RQEIterator`] instance. If there is no entry
@@ -234,5 +237,21 @@ where
     #[inline(always)]
     fn at_eof(&self) -> bool {
         self.result.doc_id >= self.max_doc_id
+    }
+}
+
+impl<'index, I> Profilable<'index> for Optional<'index, I>
+where
+    I: Profilable<'index>,
+{
+    type Profiled = Optional<'index, Profile<'index, I::Profiled>>;
+
+    fn profile_children(self) -> Self::Profiled {
+        Optional {
+            max_doc_id: self.max_doc_id,
+            weight: self.weight,
+            result: self.result,
+            child: self.child.map(Profilable::into_profiled),
+        }
     }
 }

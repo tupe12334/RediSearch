@@ -11,6 +11,7 @@
 #include "iterator_api.h"
 #include "iterators_rs.h"
 
+// Keep in sync with the partial Rust layout in rqe_iterators/src/c2rust.rs.
 typedef struct {
   QueryIterator base;         // base index iterator
   QueryIterator *wcii;        // wildcard index iterator

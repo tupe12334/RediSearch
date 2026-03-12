@@ -16,6 +16,7 @@ use numeric_range_tree::NumericRangeTree;
 use crate::{
     RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome,
     expiration_checker::{ExpirationChecker, NoOpChecker},
+    profile::Profilable,
 };
 
 use super::core::InvIndIterator;
@@ -185,5 +186,16 @@ where
         }
 
         self.it.revalidate()
+    }
+}
+
+impl<'index, R, E> Profilable<'index> for Numeric<'index, R, E>
+where
+    R: NumericReader<'index>,
+    E: ExpirationChecker,
+{
+    type Profiled = Self;
+    fn profile_children(self) -> Self {
+        self
     }
 }

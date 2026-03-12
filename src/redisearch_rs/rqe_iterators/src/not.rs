@@ -15,7 +15,9 @@ use ffi::{RS_FIELDMASK_ALL, t_docId};
 use inverted_index::RSIndexResult;
 
 use crate::{
-    RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome, maybe_empty::MaybeEmpty,
+    RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome,
+    maybe_empty::MaybeEmpty,
+    profile::{Profilable, Profile},
     util::TimeoutContext,
 };
 
@@ -264,6 +266,23 @@ where
                 // Child did not move - we did not move
                 Ok(RQEValidateStatus::Ok)
             }
+        }
+    }
+}
+
+impl<'index, I> Profilable<'index> for Not<'index, I>
+where
+    I: Profilable<'index>,
+{
+    type Profiled = Not<'index, Profile<'index, I::Profiled>>;
+
+    fn profile_children(self) -> Self::Profiled {
+        Not {
+            child: self.child.map(Profilable::into_profiled),
+            max_doc_id: self.max_doc_id,
+            forced_eof: self.forced_eof,
+            result: self.result,
+            timeout_ctx: self.timeout_ctx,
         }
     }
 }

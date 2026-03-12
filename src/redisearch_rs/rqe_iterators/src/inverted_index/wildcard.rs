@@ -16,7 +16,7 @@ use inverted_index::{
 
 use crate::{
     RQEIterator, RQEIteratorError, RQEValidateStatus, SkipToOutcome,
-    expiration_checker::NoOpChecker,
+    expiration_checker::NoOpChecker, profile::Profilable,
 };
 
 use super::core::InvIndIterator;
@@ -166,5 +166,16 @@ where
 
     fn is_wildcard(&self) -> bool {
         true
+    }
+}
+
+impl<'index, E> Profilable<'index> for Wildcard<'index, E>
+where
+    E: DecodedBy + OpaqueEncoding<Storage = inverted_index::InvertedIndex<E>>,
+    <E as DecodedBy>::Decoder: DocIdsDecoder,
+{
+    type Profiled = Self;
+    fn profile_children(self) -> Self {
+        self
     }
 }

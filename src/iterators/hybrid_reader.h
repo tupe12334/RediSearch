@@ -28,6 +28,7 @@ typedef struct {
   const FieldFilterContext* filterCtx;
 } HybridIteratorParams;
 
+// Keep in sync with the partial Rust layout in rqe_iterators/src/c2rust.rs.
 typedef struct {
   QueryIterator base;
   QueryIterator *child;
