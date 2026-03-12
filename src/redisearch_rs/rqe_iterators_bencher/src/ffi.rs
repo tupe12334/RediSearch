@@ -404,6 +404,22 @@ impl InvertedIndex {
         }
     }
 
+    /// Write a bare document ID into a `DocIdsOnly`-encoded inverted index.
+    #[inline(always)]
+    pub fn write_doc_id(&self, doc_id: u64) {
+        let record = inverted_index::RSIndexResult::build_virt()
+            .doc_id(doc_id)
+            .build();
+        // SAFETY: `self.ii` is valid for the lifetime of `self` (set in `new`),
+        // and `record` is an initialized stack value.
+        unsafe {
+            inverted_index_ffi::InvertedIndex_WriteEntryGeneric(
+                self.ii.cast(),
+                &record as *const inverted_index::RSIndexResult,
+            );
+        }
+    }
+
     #[inline(always)]
     pub fn iterator_term(&self) -> QueryIterator {
         unsafe { QueryIterator::new_term(self.ii, self.sctx) }
