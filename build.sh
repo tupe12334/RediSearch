@@ -505,6 +505,13 @@ prepare_cmake_arguments() {
   if [[ $OS_NAME != "macos" && $COV == "1" ]]; then
     # Needs the C code to link on gcov
     RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} } -C link-args=-lgcov"
+    # Coverage instrumentation prevents dead-stripping of unused extern symbol
+    # references, causing linker errors for crates that depend on `ffi` but
+    # don't link `libredisearch_all.a`. Relax the linker's undefined symbol
+    # checking to match the macOS default behavior.
+    # Crates that DO link `libredisearch_all.a` override this via their build.rs
+    # `force_link_time_symbol_resolution()`, so they retain strict checking.
+    RUSTFLAGS="${RUSTFLAGS} -C link-args=-Wl,--unresolved-symbols=ignore-in-object-files"
   fi
   if [[ $SAN == "address" ]]; then
     # Add ASAN flags to RUSTFLAGS (following RedisJSON pattern)
