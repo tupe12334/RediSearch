@@ -7,7 +7,6 @@
  * GNU Affero General Public License v3 (AGPLv3).
 */
 
-use ::inverted_index::RSIndexResult;
 use ffi::t_docId;
 use std::sync::OnceLock;
 use thiserror::Error;
@@ -139,16 +138,11 @@ pub trait RQEIterator<'index> {
         false
     }
 
-    /// Heuristic weight used by [`Intersection`] to order children.
+    /// Returns `Some(&self)` if this iterator is a [`c2rust::CRQEIterator`], `None` otherwise.
     ///
-    /// A *lower* value means the child is placed first and acts as the pivot, minimising
-    /// the number of `SkipTo` calls during query execution. The final sort key is
-    /// `num_estimated() * sort_weight()`.
-    ///
-    /// Returns `1.0` by default (no adjustment). Compound iterators override this to
-    /// reflect their internal cost (e.g. `Intersection` returns `1 / n_children`).
-    fn sort_weight(&self) -> f64 {
-        1.0
+    /// Used by [`Intersection`] to compute sort weights without requiring `'static`.
+    fn as_c_iterator(&self) -> Option<&c2rust::CRQEIterator> {
+        None
     }
 }
 
@@ -193,8 +187,8 @@ impl<'index> RQEIterator<'index> for Box<dyn RQEIterator<'index> + 'index> {
         (**self).is_wildcard()
     }
 
-    fn sort_weight(&self) -> f64 {
-        (**self).sort_weight()
+    fn as_c_iterator(&self) -> Option<&c2rust::CRQEIterator> {
+        (**self).as_c_iterator()
     }
 }
 

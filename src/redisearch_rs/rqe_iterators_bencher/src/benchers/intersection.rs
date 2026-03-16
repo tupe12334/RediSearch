@@ -259,7 +259,7 @@ impl Bencher {
     {
         group.bench_function("Rust", |b| {
             b.iter_batched_ref(
-                || Intersection::new(ids_to_rust_children(make_ids()), 1.0),
+                || Intersection::new(ids_to_rust_children(make_ids()), 1.0, false),
                 |it| {
                     while let Ok(Some(current)) = it.read() {
                         black_box(current);
@@ -277,7 +277,7 @@ impl Bencher {
     {
         group.bench_function("Rust", |b| {
             b.iter_batched_ref(
-                || Intersection::new(ids_to_rust_children(make_ids()), 1.0),
+                || Intersection::new(ids_to_rust_children(make_ids()), 1.0, false),
                 |it| {
                     while let Ok(Some(current)) = it.skip_to(it.last_doc_id() + STEP) {
                         black_box(current);
@@ -346,7 +346,7 @@ impl Bencher {
                     };
                     let children: Vec<Box<dyn RQEIterator<'_>>> =
                         vec![Box::new(first_iter), Box::new(second_iter)];
-                    Intersection::new_with_slop_order(children, 1.0, max_slop, in_order)
+                    Intersection::new_with_slop_order(children, 1.0, false, max_slop, in_order)
                 },
                 |it| {
                     while let Ok(Some(r)) = it.read() {

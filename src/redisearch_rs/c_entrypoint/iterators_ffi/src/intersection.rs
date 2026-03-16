@@ -10,9 +10,9 @@
 use std::ptr::NonNull;
 
 use ffi::{IteratorType_INTERSECT_ITERATOR, QueryIterator};
-use rqe_iterators::c2rust::CRQEIterator;
-use rqe_iterators::intersection::Intersection;
-use rqe_iterators_interop::RQEIteratorWrapper;
+use rqe_iterators::{
+    c2rust::CRQEIterator, interop::RQEIteratorWrapper, intersection::Intersection,
+};
 
 /// Free the C-allocated `its` array using the Redis allocator.
 ///
@@ -71,7 +71,15 @@ pub unsafe extern "C" fn NewIntersectionIterator(
     } else {
         Some(max_slop as u32)
     };
-    let intersection = Intersection::new_with_slop_order(children, weight, max_slop, in_order);
+    // SAFETY: `ffi::RSGlobalConfig` is the global config instance, read-only here.
+    let prioritize_union_children = unsafe { ffi::RSGlobalConfig.prioritizeIntersectUnionChildren };
+    let intersection = Intersection::new_with_slop_order(
+        children,
+        weight,
+        prioritize_union_children,
+        max_slop,
+        in_order,
+    );
     let wrapper = RQEIteratorWrapper::boxed_new(IteratorType_INTERSECT_ITERATOR, intersection);
 
     // Free the `its` array (iterators are now owned by the intersection).
