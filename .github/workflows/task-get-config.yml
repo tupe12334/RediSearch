@@ -167,12 +167,14 @@ jobs:
                   "x86_64": {
                       'container': 'ubuntu:focal',
                       'setup_script': 'apt update && apt install -y git',
-                      'name': 'Ubuntu Focal x86_64'
+                      'name': 'Ubuntu Focal x86_64',
+                      'enable_lto': '1'
                   },
                   "aarch64": {
                       'container': 'ubuntu:focal',
                       'setup_script': 'apt update && apt install -y git',
-                      'name': 'Ubuntu Focal ARM64'
+                      'name': 'Ubuntu Focal ARM64',
+                      'enable_lto': '1'
                   }
               },
               "rockylinux:8": {
@@ -231,12 +233,14 @@ jobs:
                   "x86_64": {
                       'container': 'gcc:11-bullseye',
                       'setup_script': 'apt update && apt install -y git',
-                      'name': 'Debian Bullseye x86_64'
+                      'name': 'Debian Bullseye x86_64',
+                      'enable_lto': '1'
                   },
                   "aarch64": {
                       'container': 'gcc:11-bullseye',
                       'setup_script': 'apt update && apt install -y git',
-                      'name': 'Debian Bullseye ARM64'
+                      'name': 'Debian Bullseye ARM64',
+                      'enable_lto': '1'
                   }
               },
               "debian:bookworm": {
