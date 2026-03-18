@@ -539,6 +539,17 @@ QueryIterator *TakeOptionalOptimizedIteratorChild(QueryIterator *header);
 void SetOptionalOptimizedIteratorChild(QueryIterator *header, QueryIterator *child);
 
 /**
+ * Replace the wildcard iterator (`wcii`) of the optimized optional iterator.
+ * The old wildcard iterator is dropped (and freed).
+ *
+ * # Safety
+ *
+ * 1. `header` must be a valid non-null pointer created via [`NewOptionalOptimizedIterator`].
+ * 2. `wcii` must be a valid non-null owning pointer to a C query iterator.
+ */
+void SetOptionalOptimizedIteratorWildcard(QueryIterator *header, QueryIterator *wcii);
+
+/**
  * Create a new profile iterator.
  *
  * # Safety

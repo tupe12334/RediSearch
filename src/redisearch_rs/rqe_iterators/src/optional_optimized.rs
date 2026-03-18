@@ -75,6 +75,12 @@ where
         self.child = MaybeEmpty::new(child);
     }
 
+    // C-Code: Only used from C tests to inject a mock wildcard iterator.
+    /// Replaces the wildcard iterator. The old one is dropped.
+    pub fn set_wcii(&mut self, wcii: W) {
+        self.wcii = wcii;
+    }
+
     /// Creates a new [`OptionalOptimized`] iterator.
     ///
     /// * `wcii` — wildcard iterator over `spec.existingDocs`; drives which doc IDs

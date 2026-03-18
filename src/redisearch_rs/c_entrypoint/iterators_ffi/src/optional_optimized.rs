@@ -178,3 +178,34 @@ pub unsafe extern "C" fn SetOptionalOptimizedIteratorChild(
     let child = unsafe { CRQEIterator::new(child) };
     wrapper.inner.set_child(child);
 }
+
+// C-Code: Only used from C tests to inject a mock wildcard iterator.
+#[unsafe(no_mangle)]
+/// Replace the wildcard iterator (`wcii`) of the optimized optional iterator.
+/// The old wildcard iterator is dropped (and freed).
+///
+/// # Safety
+///
+/// 1. `header` must be a valid non-null pointer created via [`NewOptionalOptimizedIterator`].
+/// 2. `wcii` must be a valid non-null owning pointer to a C query iterator.
+pub unsafe extern "C" fn SetOptionalOptimizedIteratorWildcard(
+    header: *mut QueryIterator,
+    wcii: *mut QueryIterator,
+) {
+    debug_assert!(!header.is_null());
+    debug_assert!(!wcii.is_null());
+    debug_assert_eq!(
+        // SAFETY: thanks to 1
+        unsafe { *header }.type_,
+        IteratorType_OPTIONAL_OPTIMIZED_ITERATOR,
+        "Expected an optimized optional iterator"
+    );
+    // SAFETY: thanks to 1
+    let wrapper =
+        unsafe { RQEIteratorWrapper::<OptionalOptimizedFfi>::mut_ref_from_header_ptr(header) };
+    let wcii =
+        NonNull::new(wcii).expect("Trying to set a NULL wcii for an optimized optional iterator");
+    // SAFETY: thanks to 2
+    let wcii = OpaqueWildcardIterator(unsafe { CRQEIterator::new(wcii) });
+    wrapper.inner.set_wcii(wcii);
+}
