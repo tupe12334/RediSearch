@@ -8,6 +8,7 @@
 */
 
 use ffi::{RS_FIELDMASK_ALL, t_docId};
+use inverted_index::RSResultKind;
 use rqe_iterators::{
     RQEIterator, RQEValidateStatus, SkipToOutcome, empty::Empty,
     optional_optimized::OptionalOptimized, wildcard::Wildcard,
@@ -199,6 +200,68 @@ mod optional_optimized_iterator_tests {
         assert!(it.at_eof());
     }
 
+    /// C-Code: Exhaustive skip_to coverage ported from `OptionalIteratorOptimized::SkipTo`
+    /// (nested-loop section) in `tests/cpptests/test_cpp_iterator_optional.cpp`.
+    ///
+    /// For every ordered pair `(from_id, skip_to_id)` drawn from the wildcard document
+    /// range, rewinds the iterator, positions it at `from_id`, then calls `skip_to`
+    /// targeting `skip_to_id`. Verifies that:
+    /// - The iterator lands on the correct next wildcard doc ≥ `skip_to_id`.
+    /// - `Found`/`NotFound` outcome matches whether `skip_to_id` is an exact wildcard hit.
+    /// - Real vs. virtual result distinction (weight) is correct at the landing position.
+    #[test]
+    fn test_skip_to_exhaustive() {
+        // Mirror the C++ fixture: wildcard = multiples of 5 in [5..=95],
+        // child = even multiples of 10 in [20..=90].
+        const WILDCARD_DOCS: [t_docId; 19] =
+            [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
+        const CHILD_DOCS_EXH: [t_docId; 8] = [20, 30, 40, 50, 60, 70, 80, 90];
+        const WEIGHT_EXH: f64 = 4.6;
+        const MAX_EXH: t_docId = 95;
+
+        let wcii = utils::Mock::new(WILDCARD_DOCS);
+        let child = utils::Mock::new(CHILD_DOCS_EXH);
+        let mut it = OptionalOptimized::new(wcii, child, MAX_EXH, WEIGHT_EXH);
+
+        for &from_id in &WILDCARD_DOCS {
+            for skip_to_id in (from_id + 1)..=*WILDCARD_DOCS.last().unwrap() {
+                it.rewind();
+
+                // Position at from_id.
+                match it.skip_to(from_id).expect("no error") {
+                    Some(SkipToOutcome::Found(r)) => assert_eq!(r.doc_id, from_id),
+                    other => panic!("unexpected when positioning at {from_id}: {other:?}"),
+                }
+                assert_eq!(it.last_doc_id(), from_id);
+
+                // Expected landing position: first wildcard doc ≥ skip_to_id.
+                let &expected_id = WILDCARD_DOCS
+                    .iter()
+                    .find(|&&id| id >= skip_to_id)
+                    .unwrap();
+
+                let is_real = CHILD_DOCS_EXH.contains(&expected_id);
+                match it.skip_to(skip_to_id).expect("no error") {
+                    Some(SkipToOutcome::Found(r)) => {
+                        assert_eq!(
+                            skip_to_id, expected_id,
+                            "Found outcome only valid on exact wildcard hit"
+                        );
+                        assert_eq!(r.doc_id, expected_id);
+                        assert_eq!(r.weight, if is_real { WEIGHT_EXH } else { 0. });
+                    }
+                    Some(SkipToOutcome::NotFound(r)) => {
+                        assert_ne!(skip_to_id, expected_id);
+                        assert_eq!(r.doc_id, expected_id);
+                        assert_eq!(r.weight, if is_real { WEIGHT_EXH } else { 0. });
+                    }
+                    None => panic!("unexpected EOF skipping to {skip_to_id}"),
+                }
+                assert_eq!(it.last_doc_id(), expected_id);
+            }
+        }
+    }
+
     #[test]
     fn test_weight_application() {
         let mut it = setup();
@@ -240,6 +303,7 @@ mod optional_optimized_iterator_with_empty_child_tests {
             assert_eq!(r.weight, 0.);
             assert_eq!(r.freq, 1);
             assert_eq!(r.field_mask, RS_FIELDMASK_ALL);
+            assert_eq!(r.kind(), RSResultKind::Virtual);
             assert_eq!(it.last_doc_id(), expected_id);
             let cur = it.current().unwrap();
             assert_eq!(cur.doc_id, expected_id);
@@ -332,6 +396,11 @@ mod optional_optimized_iterator_revalidate_tests {
         let status = it.revalidate().expect("revalidate");
         // Child aborted while on a virtual result → Ok (no state change needed)
         assert!(matches!(status, RQEValidateStatus::Ok));
+        assert!(
+            it.child().is_none(),
+            "child must be replaced by Empty after abort"
+        );
+        assert_eq!(data.revalidate_count(), 1);
 
         // All subsequent reads are virtual
         let r = it.read().expect("read").expect("result");
@@ -352,6 +421,7 @@ mod optional_optimized_iterator_revalidate_tests {
         let status = it.revalidate().expect("revalidate");
         // Child moved while on a real result → Moved
         assert!(matches!(status, RQEValidateStatus::Moved { .. }));
+        assert_eq!(data.revalidate_count(), 1);
     }
 
     #[test]
@@ -368,6 +438,7 @@ mod optional_optimized_iterator_revalidate_tests {
         let status = it.revalidate().expect("revalidate");
         // Child moved while on a virtual result → Ok
         assert!(matches!(status, RQEValidateStatus::Ok));
+        assert_eq!(data.revalidate_count(), 1);
     }
 
     #[test]
@@ -438,5 +509,106 @@ mod optional_optimized_iterator_revalidate_tests {
             _ => panic!("expected Moved with a virtual result"),
         }
         assert_eq!(it.last_doc_id(), 20);
+    }
+
+    /// C-Code: Ported from `RevalidateChildAborted_WildcardMoved` in
+    /// `tests/cpptests/test_cpp_iterator_optional.cpp`.
+    ///
+    /// When `child` aborts and `wcii` moves simultaneously, the iterator must:
+    /// - Replace `child` with `Empty`.
+    /// - Return `Moved` at the new `wcii` position (virtual hit, since child is gone).
+    #[test]
+    fn test_revalidate_child_aborted_wcii_moved() {
+        let wcii = utils::Mock::new([5u64, 20]);
+        let mut wcii_data = wcii.data();
+        let child = utils::Mock::new([5u64, 35]);
+        let mut child_data = child.data();
+        let mut it = OptionalOptimized::new(wcii, child, MAX_DOC_ID, WEIGHT);
+
+        // Position on doc 5 (real hit: both wcii and child land there).
+        let r = it.read().expect("read").expect("result");
+        assert_eq!(r.doc_id, 5);
+
+        wcii_data.set_revalidate_result(utils::MockRevalidateResult::Move);
+        child_data.set_revalidate_result(utils::MockRevalidateResult::Abort);
+
+        // wcii moves to 20; child aborts → replaced by Empty → virtual hit at 20.
+        match it.revalidate().expect("revalidate") {
+            RQEValidateStatus::Moved { current: Some(r) } => {
+                assert_eq!(r.doc_id, 20);
+                assert_eq!(r.weight, 0.); // virtual: child is gone
+            }
+            other => panic!("expected Moved with virtual result, got {other:?}"),
+        }
+        assert!(
+            it.child().is_none(),
+            "child must be replaced by Empty after abort"
+        );
+        assert_eq!(wcii_data.revalidate_count(), 1);
+        assert_eq!(child_data.revalidate_count(), 1);
+    }
+
+    /// C-Code: Ported from `RevalidateChildMoved_WildcardAborted` in
+    /// `tests/cpptests/test_cpp_iterator_optional.cpp`.
+    ///
+    /// When `wcii` aborts the entire optional iterator must abort immediately,
+    /// without even revalidating `child`.
+    #[test]
+    fn test_revalidate_child_moved_wcii_aborted() {
+        let wcii = utils::Mock::new([5u64, 20]);
+        let mut wcii_data = wcii.data();
+        let child = utils::Mock::new([5u64, 35]);
+        let mut child_data = child.data();
+        let mut it = OptionalOptimized::new(wcii, child, MAX_DOC_ID, WEIGHT);
+
+        let r = it.read().expect("read").expect("result");
+        assert_eq!(r.doc_id, 5);
+
+        wcii_data.set_revalidate_result(utils::MockRevalidateResult::Abort);
+        child_data.set_revalidate_result(utils::MockRevalidateResult::Move);
+
+        let status = it.revalidate().expect("revalidate");
+        assert!(matches!(status, RQEValidateStatus::Aborted));
+        // wcii was checked; child must NOT have been revalidated (short-circuit).
+        assert_eq!(wcii_data.revalidate_count(), 1);
+        assert_eq!(child_data.revalidate_count(), 0);
+    }
+
+    /// C-Code: Ported from `RevalidateChildMoved_WildcardMoved` in
+    /// `tests/cpptests/test_cpp_iterator_optional.cpp`.
+    ///
+    /// When both `wcii` and `child` move, the iterator must return `Moved` at
+    /// `wcii`'s new position, with the appropriate real-vs-virtual result.
+    #[test]
+    fn test_revalidate_child_moved_wcii_moved() {
+        // wcii: [5, 20, 35] — after reading doc 5 it will move to 20 on revalidation.
+        // child: [5, 25, 35] — child has no hit at 20, so landing is virtual.
+        let wcii = utils::Mock::new([5u64, 20, 35]);
+        let mut wcii_data = wcii.data();
+        let child = utils::Mock::new([5u64, 25, 35]);
+        let mut child_data = child.data();
+        let mut it = OptionalOptimized::new(wcii, child, MAX_DOC_ID, WEIGHT);
+
+        let r = it.read().expect("read").expect("result");
+        assert_eq!(r.doc_id, 5);
+
+        wcii_data.set_revalidate_result(utils::MockRevalidateResult::Move);
+        child_data.set_revalidate_result(utils::MockRevalidateResult::Move);
+
+        // wcii moves to 20; child moves to 25 — no child hit at 20 → virtual.
+        match it.revalidate().expect("revalidate") {
+            RQEValidateStatus::Moved { current: Some(r) } => {
+                assert_eq!(r.doc_id, 20);
+                assert_eq!(r.weight, 0.); // virtual
+            }
+            other => panic!("expected Moved, got {other:?}"),
+        }
+        assert_eq!(it.last_doc_id(), 20);
+        assert_eq!(wcii_data.revalidate_count(), 1);
+        assert_eq!(child_data.revalidate_count(), 1);
+
+        // Can still read after revalidation.
+        let r = it.read().expect("read after revalidate").expect("result");
+        assert!(r.doc_id > 20);
     }
 }
