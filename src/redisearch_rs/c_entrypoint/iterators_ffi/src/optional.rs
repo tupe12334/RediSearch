@@ -10,11 +10,9 @@
 use std::ptr::NonNull;
 
 use ffi::{IteratorType_OPTIONAL_ITERATOR, QueryIterator, t_docId};
+use rqe_iterators::c2rust::CRQEIterator;
 use rqe_iterators::interop::RQEIteratorWrapper;
 use rqe_iterators::optional::Optional;
-
-use rqe_iterators::c2rust::CRQEIterator;
-
 #[unsafe(no_mangle)]
 /// Create a new non-optimized optional iterator.
 ///

@@ -5,7 +5,7 @@
  * Licensed under your choice of the Redis Source Available License 2.0
  * (RSALv2); or (b) the Server Side Public License v1 (SSPLv1); or (c) the
  * GNU Affero General Public License v3 (AGPLv3).
-*/
+ */
 
 #include "optional_iterator.h"
 #include "iterator_api.h"
@@ -13,9 +13,9 @@
 #include "iterators_rs.h"
 
 typedef struct {
-  QueryIterator base;     // base index iterator
-  QueryIterator *child;   // child index iterator
-  QueryIterator *wcii;    // wildcard child iterator, used for optimization
+  QueryIterator base;    // base index iterator
+  QueryIterator *child;  // child index iterator
+  QueryIterator *wcii;   // wildcard child iterator, used for optimization
   RSIndexResult *virt;
   t_docId maxDocId;
   double weight;
@@ -133,9 +133,9 @@ static ValidateStatus OI_Revalidate_Optimized(QueryIterator *base) {
 
   // 1. Revalidate the wildcard iterator first
   ValidateStatus wcii_status = oi->wcii->Revalidate(oi->wcii);
-  base->atEOF = oi->wcii->atEOF; // Update atEOF based on wildcard iterator status
+  base->atEOF = oi->wcii->atEOF;  // Update atEOF based on wildcard iterator status
   if (wcii_status == VALIDATE_ABORTED) {
-    return VALIDATE_ABORTED; // If wildcard iterator is aborted, we must abort too
+    return VALIDATE_ABORTED;  // If wildcard iterator is aborted, we must abort too
   }
 
   // 2. Revalidate the child iterator
@@ -148,8 +148,9 @@ static ValidateStatus OI_Revalidate_Optimized(QueryIterator *base) {
 
   // 3. Validate the current result
   if (wcii_status == VALIDATE_OK) {
-    // If the wildcard iterator was not moved, we can handle the current state similarly to the non-optimized version.
-    // If the child iterator was not moved, or if the current result is virtual, we can return VALIDATE_OK.
+    // If the wildcard iterator was not moved, we can handle the current state similarly to the
+    // non-optimized version. If the child iterator was not moved, or if the current result is
+    // virtual, we can return VALIDATE_OK.
     if (child_status == VALIDATE_OK || base->current == oi->virt) {
       return VALIDATE_OK;
     }
@@ -186,7 +187,7 @@ static ValidateStatus OI_Revalidate_Optimized(QueryIterator *base) {
  * 2. If the child is a wildcard iterator, return it
  * 3. Otherwise, return NULL and let the caller create the optional iterator
  */
-static QueryIterator* OptionalIteratorReducer(QueryIterator *it, QueryEvalCtx *q, double weight) {
+static QueryIterator *OptionalIteratorReducer(QueryIterator *it, QueryEvalCtx *q, double weight) {
   QueryIterator *ret = NULL;
   if (!it || it->type == EMPTY_ITERATOR) {
     // If the child is NULL, we return a wildcard iterator. All will be virtual hits
@@ -202,7 +203,7 @@ static QueryIterator* OptionalIteratorReducer(QueryIterator *it, QueryEvalCtx *q
   return ret;
 }
 
-// Create a new OPTIONAL iterator - Non-Optimized version.
+// Create a new OPTIONAL iterator
 QueryIterator *NewOptionalIterator(QueryIterator *it, QueryEvalCtx *q, double weight) {
   RS_ASSERT(q && q->sctx && q->sctx->spec && q->docTable);
   QueryIterator *ret = OptionalIteratorReducer(it, q, weight);
@@ -215,24 +216,7 @@ QueryIterator *NewOptionalIterator(QueryIterator *it, QueryEvalCtx *q, double we
   t_docId maxDocId = q->docTable->maxDocId;
 
   if (optimized) {
-    OptionalOptimizedIterator *oi = rm_calloc(1, sizeof(*oi));
-    oi->wcii = NewWildcardIterator_Optimized(q->sctx, 0);
-    oi->child = it;
-    oi->virt = NewVirtualResult(0, RS_FIELDMASK_ALL);
-    oi->virt->freq = 1;
-    oi->maxDocId = maxDocId;
-    oi->weight = weight;
-    ret = &oi->base;
-    ret->type = OPTIONAL_OPTIMIZED_ITERATOR;
-    ret->atEOF = false;
-    ret->lastDocId = 0;
-    ret->current = oi->virt;
-    ret->NumEstimated = OI_NumEstimated;
-    ret->Free = OI_Free;
-    ret->Rewind = OI_Rewind;
-    ret->Read = OI_Read_Optimized;
-    ret->SkipTo = OI_SkipTo_Optimized;
-    ret->Revalidate = OI_Revalidate_Optimized;
+    ret = NewOptionalOptimizedIterator(q->sctx, it, maxDocId, weight);
   } else {
     ret = NewOptionalNonOptimizedIterator(it, maxDocId, weight);
   }
@@ -240,49 +224,41 @@ QueryIterator *NewOptionalIterator(QueryIterator *it, QueryEvalCtx *q, double we
   return ret;
 }
 
-QueryIterator const* GetOptionalIteratorChild(const QueryIterator *base) {
-    if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
-        OptionalOptimizedIterator const*it = (OptionalOptimizedIterator *)base;
-        return it->child;
-    } else {
-        return GetOptionalNonOptimizedIteratorChild(base);
-    }
+QueryIterator const *GetOptionalIteratorChild(const QueryIterator *base) {
+  if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
+    return GetOptionalOptimizedIteratorChild(base);
+  } else {
+    return GetOptionalNonOptimizedIteratorChild(base);
+  }
 }
 
 QueryIterator *TakeOptionalIteratorChild(QueryIterator *base) {
-    if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
-        OptionalOptimizedIterator *it = (OptionalOptimizedIterator *)base;
-        QueryIterator* child = it->child;
-        it->child = NULL;
-        return child;
-    } else {
-        return TakeOptionalNonOptimizedIteratorChild(base);
-    }
+  if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
+    return TakeOptionalOptimizedIteratorChild(base);
+  } else {
+    return TakeOptionalNonOptimizedIteratorChild(base);
+  }
 }
 
 void SetOptionalIteratorChild(QueryIterator *base, QueryIterator *newChild) {
-    if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
-        OptionalOptimizedIterator *it = (OptionalOptimizedIterator *)base;
-        if (it->child) {
-            it->child->Free(it->child);
-        }
-        it->child = newChild;
-    } else {
-        SetOptionalNonOptimizedIteratorChild(base, newChild);
-    }
+  if (base->type == OPTIONAL_OPTIMIZED_ITERATOR) {
+    SetOptionalOptimizedIteratorChild(base, newChild);
+  } else {
+    SetOptionalNonOptimizedIteratorChild(base, newChild);
+  }
 }
 
-QueryIterator const* GetOptionalOptimizedIteratorWildcard(QueryIterator *base) {
-    RS_ASSERT (base->type == OPTIONAL_OPTIMIZED_ITERATOR);
-    OptionalOptimizedIterator const*it = (OptionalOptimizedIterator *)base;
-    return it->wcii;
+QueryIterator const *GetOptionalOptimizedIteratorWildcard(QueryIterator *base) {
+  RS_ASSERT(base->type == OPTIONAL_OPTIMIZED_ITERATOR);
+  OptionalOptimizedIterator const *it = (OptionalOptimizedIterator *)base;
+  return it->wcii;
 }
 
 void SetOptionalOptimizedIteratorWildcard(QueryIterator *base, QueryIterator *newWcii) {
-    RS_ASSERT (base->type == OPTIONAL_OPTIMIZED_ITERATOR);
-    OptionalOptimizedIterator *it = (OptionalOptimizedIterator *)base;
-    if (it->wcii) {
-        it->wcii->Free(it->wcii);
-    }
-    it->wcii = newWcii;
+  RS_ASSERT(base->type == OPTIONAL_OPTIMIZED_ITERATOR);
+  OptionalOptimizedIterator *it = (OptionalOptimizedIterator *)base;
+  if (it->wcii) {
+    it->wcii->Free(it->wcii);
+  }
+  it->wcii = newWcii;
 }

@@ -493,6 +493,52 @@ void SetOptionalNonOptimizedIteratorChild(QueryIterator *header,
                                           QueryIterator *child);
 
 /**
+ * Create a new optimized optional iterator.
+ *
+ * The wildcard child (`wcii`) is created internally from `sctx` via
+ * [`NewWildcardIterator_Optimized`](crate::wildcard::NewWildcardIterator_Optimized).
+ *
+ * # Safety
+ *
+ * 1. `sctx` must satisfy all preconditions of [`NewWildcardIterator_Optimized`].
+ * 2. `child` must be a valid non-null owning pointer to a C query iterator.
+ * 3. `child` must not be aliased.
+ */
+QueryIterator *NewOptionalOptimizedIterator(const RedisSearchCtx *sctx,
+                                            QueryIterator *child,
+                                            t_docId max_doc_id,
+                                            double weight);
+
+/**
+ * Get the child pointer of the optimized optional iterator, or NULL if there is no child.
+ *
+ * # Safety
+ *
+ * 1. `header` must be a valid non-null pointer created via [`NewOptionalOptimizedIterator`].
+ */
+const QueryIterator *GetOptionalOptimizedIteratorChild(const QueryIterator *header);
+
+/**
+ * Take ownership over the child of the optimized optional iterator,
+ * or return NULL if there is no child.
+ *
+ * # Safety
+ *
+ * 1. `header` must be a valid non-null pointer created via [`NewOptionalOptimizedIterator`].
+ */
+QueryIterator *TakeOptionalOptimizedIteratorChild(QueryIterator *header);
+
+/**
+ * Set (or overwrite) the child iterator of the optimized optional iterator.
+ *
+ * # Safety
+ *
+ * 1. `header` must be a valid non-null pointer created via [`NewOptionalOptimizedIterator`].
+ * 2. `child` must be a valid non-null non-aliased owning pointer to a C query iterator.
+ */
+void SetOptionalOptimizedIteratorChild(QueryIterator *header, QueryIterator *child);
+
+/**
  * Create a new profile iterator.
  *
  * # Safety
