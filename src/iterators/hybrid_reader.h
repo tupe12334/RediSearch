@@ -30,6 +30,7 @@ typedef struct {
 
 typedef struct {
   QueryIterator base;
+  QueryIterator *child;
   RedisSearchCtx *sctx;
   VecSimIndex *index;
   size_t dimension;                // index dimension
@@ -37,7 +38,6 @@ typedef struct {
   VecSimMetric indexMetric;        // index distance metric
   KNNVectorQuery query;
   VecSimQueryParams runtimeParams; // Evaluated runtime params.
-  QueryIterator *child;
   VecSimSearchMode searchMode;
   bool resultsPrepared;            // Indicates if the results were already processed
                                    // (should occur in the first call to Read)

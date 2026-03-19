@@ -22,6 +22,8 @@ typedef int (*OptimizerCompareFunc)(const void *e1, const void *e2, const void *
 
 typedef struct {
   QueryIterator base;
+  // child iterator with old root and numeric iterator for sortby field
+  QueryIterator *child;
   QOptimizer *optim;
   int flags;
 
@@ -33,9 +35,6 @@ typedef struct {
   int lastLimitEstimate;        // last estimation for filter
 
   size_t offset;
-
-  // child iterator with old root and numeric iterator for sortby field
-  QueryIterator *child;
   t_docId childLastId;
   QueryIterator *numericIter;
   t_docId numericLastId;
