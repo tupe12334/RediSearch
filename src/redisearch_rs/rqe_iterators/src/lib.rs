@@ -144,6 +144,30 @@ pub trait RQEIterator<'index> {
     fn as_c_iterator(&self) -> Option<&c2rust::CRQEIterator> {
         None
     }
+
+    /// Returns `true` if this is an AND-intersection of multiple child iterators.
+    ///
+    /// Used by [`Intersection`] to apply the `1/num_children` sort-weight heuristic to
+    /// nested intersection children.
+    fn is_intersection(&self) -> bool {
+        false
+    }
+
+    /// Returns `true` if this is an OR-union of multiple child iterators.
+    ///
+    /// Used by [`Intersection`] to apply the `num_children` sort-weight heuristic to
+    /// union children when `prioritize_union_children` is set.
+    fn is_union(&self) -> bool {
+        false
+    }
+
+    /// Returns the number of direct child iterators, if this is a composite iterator.
+    ///
+    /// Used together with [`is_intersection`](Self::is_intersection) and
+    /// [`is_union`](Self::is_union) by [`Intersection`] to compute sort weights.
+    fn num_children(&self) -> Option<usize> {
+        None
+    }
 }
 
 // Implement RQEIterator for Box<dyn RQEIterator> to support dynamic dispatch
@@ -189,6 +213,18 @@ impl<'index> RQEIterator<'index> for Box<dyn RQEIterator<'index> + 'index> {
 
     fn as_c_iterator(&self) -> Option<&c2rust::CRQEIterator> {
         (**self).as_c_iterator()
+    }
+
+    fn is_intersection(&self) -> bool {
+        (**self).is_intersection()
+    }
+
+    fn is_union(&self) -> bool {
+        (**self).is_union()
+    }
+
+    fn num_children(&self) -> Option<usize> {
+        (**self).num_children()
     }
 }
 

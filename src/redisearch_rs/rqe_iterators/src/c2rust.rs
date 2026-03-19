@@ -320,4 +320,25 @@ impl<'index> RQEIterator<'index> for CRQEIterator {
     fn as_c_iterator(&self) -> Option<&CRQEIterator> {
         Some(self)
     }
+
+    fn is_intersection(&self) -> bool {
+        self.type_ == ffi::IteratorType_INTERSECT_ITERATOR
+    }
+
+    fn is_union(&self) -> bool {
+        self.type_ == ffi::IteratorType_UNION_ITERATOR
+    }
+
+    fn num_children(&self) -> Option<usize> {
+        match self.type_ {
+            ffi::IteratorType_UNION_ITERATOR => {
+                let ptr = std::ptr::from_ref(self.as_ref());
+                // SAFETY: `type_` guarantees `ptr` points to a `UnionIterator` whose first field
+                // is the `QueryIterator` base — the cast is valid by C struct layout.
+                let num = unsafe { (*ptr.cast::<ffi::UnionIterator>()).num };
+                Some(num as usize)
+            }
+            _ => None,
+        }
+    }
 }
