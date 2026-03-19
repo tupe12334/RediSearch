@@ -14,3 +14,4 @@ apt_get_cmd install -yqq git wget build-essential lcov openssl libssl-dev \
 
 # Need clang for LTO
 source "$(dirname "${BASH_SOURCE[0]}")/install_llvm.sh" $MODE
+clang -v

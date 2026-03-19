@@ -25,3 +25,4 @@ $MODE update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-11 60
 
 # Need clang for LTO
 source "$(dirname "${BASH_SOURCE[0]}")/install_llvm.sh" $MODE
+clang -v
