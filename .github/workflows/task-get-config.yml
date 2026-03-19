@@ -164,11 +164,6 @@ jobs:
                   }
               },
               "ubuntu:focal": {
-                  "x86_64": {
-                      'container': 'ubuntu:focal',
-                      'setup_script': 'apt update && apt install -y git',
-                      'name': 'Ubuntu Focal x86_64',
-                  },
                   "aarch64": {
                       'container': 'ubuntu:focal',
                       'setup_script': 'apt update && apt install -y git',
@@ -229,12 +224,6 @@ jobs:
                   }
               },
               "debian:bullseye": {
-                  "x86_64": {
-                      'container': 'gcc:11-bullseye',
-                      'setup_script': 'apt update && apt install -y git',
-                      'name': 'Debian Bullseye x86_64',
-                      'enable_lto': '1'
-                  },
                   "aarch64": {
                       'container': 'gcc:11-bullseye',
                       'setup_script': 'apt update && apt install -y git',
